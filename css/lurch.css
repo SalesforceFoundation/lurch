@@ -1,0 +1,26 @@
+body {
+    background: linear-gradient(to right, #344A5F, #FFFFFF);
+}
+.navbar{
+  z-index: 999;
+  width: 100%;
+  position: absolute;
+  background-color: #344A5F;
+}
+.container-fluid{
+  margin-left: 10%;
+}
+.nav{
+  margin-left: 45px;
+}
+.navbar-right{
+  margin-right: 60px;
+}
+#content_row{
+  position: relative;
+  margin-right: auto;
+  margin-left: auto;
+}
+img{
+  width:200px;
+}
