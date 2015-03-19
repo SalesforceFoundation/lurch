@@ -64,8 +64,8 @@
   var github = new ngithub({
       version: "3.0.0"
   });
-  var clientId = "30b3c8d4b5c4d4dd6a88";
-  var secret = "585696e5746c32af909ba151074e85c53f2a6ede";
+  var clientId = process.env.GH_CLIENTID;
+  var secret = process.env.GH_SECRET;
   var oauth = new OAuth2(clientId, secret, "https://github.com/", "login/oauth/authorize", "login/oauth/access_token");
 
   // ========== Route Handlers ==========
