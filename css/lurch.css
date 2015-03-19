@@ -1,5 +1,5 @@
 body {
-    background: linear-gradient(to right, #344A5F, #FFFFFF);
+    background: linear-gradient(to right, #344A5F, #FFFFFF, #344A5F);
 }
 .navbar{
   z-index: 999;
