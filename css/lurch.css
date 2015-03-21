@@ -4,7 +4,7 @@ body {
 .navbar{
   z-index: 999;
   width: 100%;
-  position: absolute;
+  position: relative;
   background-color: #344A5F;
 }
 .container-fluid{
@@ -16,11 +16,51 @@ body {
 .navbar-right{
   margin-right: 60px;
 }
+.panel{
+  margin-right: auto;
+  margin-left: auto;
+  width: 50%;
+}
+.panel-heading{
+  background-color: #344A5F;
+}
+.panel-default>.panel-heading{
+  background-color: #344A5F;
+}
+.panel.panel-default>.panel-heading{
+  color: #FFFFFF;
+}
+.panel-row{
+  margin-top: auto;
+  margin-bottom: auto;
+}
+.auth-status{
+  float: right;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+.oauth-status-icon{
+  color: red;
+  font-size:30px;
+  padding: 10% 0;
+}
+.button-group{
+  padding: 2% 0;
+}
+.btn{
+  margin-left: 10px;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+
 #content_row{
+  margin-top: auto;
   position: relative;
   margin-right: auto;
   margin-left: auto;
 }
+
 img{
-  width:200px;
+  width:75px;  
 }

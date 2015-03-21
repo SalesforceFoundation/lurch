@@ -8,12 +8,12 @@
   var port = Number(process.env.PORT || 5000);
   var logfmt = require("logfmt");
   var express = require("express");
-  var app = require('express')();
+  var app = express();
   var cookieParser = require('cookie-parser');
   var session = require('express-session');
   app.use(bodyParser.urlencoded({extended: true}));
   app.use(cookieParser());
-  app.use(session({ secret: 'yourang???',
+  app.use(session({ secret: 'yourang?',
                     resave: true,
                     saveUninitialized: true,
                     cookie: { maxAge: 100000000}
