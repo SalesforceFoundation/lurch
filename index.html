@@ -3,6 +3,7 @@
 	<head>
     <script type="text/javascript" src="http://kbromer.github.io/cdn/js/jquery-2.1.1.min.js"></script>
     <script type="text/javascript" src="lurch.js"></script>
+		<script type="text/javascript" src="socket.io.js"></script>
 		<link href="http://kbromer.github.io/cdn/css/bootstrapsf1.min.css" rel="stylesheet">
     <link href="css/bootstrap-glyphicons.css" rel="stylesheet">
     <link href="css/lurch.css" rel="stylesheet">
@@ -37,11 +38,12 @@
                 Github Authorization
               </div>
               <div class="col-xs-6 col-md-4 button-group">
-                <button type="button" class="btn btn-success">Connect</button>
-                <button type="button" class="btn btn-danger">Disconnect</button>
+                <button type="button" class="btn btn-success github-connect">Connect</button>
+                <button type="button" class="btn btn-danger github-disconnect">Disconnect</button>
               </div>
               <div class="col-xs-6 col-md-4">
-                <span class="glyphicon glyphicon-remove-sign auth-status oauth-status-icon" aria-hidden="true"></span>
+                <span class="glyphicon glyphicon-remove-sign auth-status oauth-status-icon gh-auth-remove"></span>
+								<span class="glyphicon glyphicon-ok-sign auth-status oauth-status-ok gh-auth-ok"></span>
               </div>
             </div>
           </li>
@@ -52,11 +54,12 @@
                 Salesforce Authorization
               </div>
               <div class="col-xs-6 col-md-4 button-group">
-                <button type="button" class="btn btn-success">Connect</button>
-                <button type="button" class="btn btn-danger">Disconnect</button>
+                <button type="button" class="btn btn-success sfdc-connect">Connect</button>
+                <button type="button" class="btn btn-danger sfdc-disconnect">Disconnect</button>
               </div>
               <div class="col-xs-6 col-md-4">
-                <span class="glyphicon glyphicon-remove-sign auth-status oauth-status-icon" aria-hidden="true"></span>
+                <span class="glyphicon glyphicon-remove-sign auth-status oauth-status-remove sfdc-auth-remove"></span>
+								<span class="glyphicon glyphicon-ok-sign auth-status oauth-status-ok sfdc-auth-ok"></span>
               </div>
             </div>
           </li>

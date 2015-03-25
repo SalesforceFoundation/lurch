@@ -38,11 +38,14 @@ body {
   float: right;
   margin-top: auto;
   margin-bottom: auto;
-}
-.oauth-status-icon{
-  color: red;
   font-size:30px;
   padding: 10% 0;
+}
+.oauth-status-remove{
+  color: red;
+}
+.oauth-status-ok{
+  color: green;
 }
 .button-group{
   padding: 2% 0;
@@ -62,5 +65,5 @@ body {
 }
 
 img{
-  width:75px;  
+  width:75px;
 }
