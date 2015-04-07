@@ -40,12 +40,15 @@ body {
   margin-bottom: auto;
   font-size:30px;
   padding: 10% 0;
+  display: none;
 }
 .oauth-status-remove{
   color: red;
+  display: none;
 }
 .oauth-status-ok{
   color: green;
+  display: none;
 }
 .button-group{
   padding: 2% 0;
@@ -54,6 +57,7 @@ body {
   margin-left: 10px;
   margin-top: auto;
   margin-bottom: auto;
+  display: none;
 }
 
 

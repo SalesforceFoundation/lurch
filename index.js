@@ -107,47 +107,54 @@
       console.log('getting auth redir...');
       console.log('AuthURI: ' + org.getAuthUri());
       res.redirect(org.getAuthUri());
-    }
-  );
+  });
 
   app.get('/auth/sfdc/_callback', function(req, res) {
       org.authenticate({code: req.query.code}, function(err, resp){
         if(!err) {
-          console.log('Access Token: ' + resp.access_token);
+          console.log('SFDC Access Token: ' + resp.access_token);
           lurch.auth.sfdc_token = resp.access_token;
-          console.log(resp);
-          console.log(resp.id);
+          //query force.com id service
+          org.getIdentity({}, function(err, resp){
+            console.log('Logging in...');
+            console.log(resp);
+          });
           res.redirect('/index.html');
         } else {
           console.log('Error: ' + err.message);
         }
       });
+  });
+  app.get('/auth/sfdc/status', function(req, res){
+    res.writeHead(200, {'Content-Type':'application/json'});
+    var status_response = '';
+    if (lurch.auth.sfdc_token !== ''){
+      status_response = JSON.stringify({'status':true});
     }
-   );
-
+    else{
+      status_response = JSON.stringify({'status':false});
+    }
+    res.write(status_response);
+    res.end();
+  });
   app.get('/auth/sfdc/revoke', function(req, res){
     var r = res;
     org.revokeToken({token: lurch.auth.sfdc_token}, function(err, resp) {
       lurch.auth.sfdc_token = '';
       res.redirect('/index.html');
     });
-
   });
 
   // ========== Github Authentication ==========
   app.get('/auth/github', function(req,res){
-          res.writeHead(303, {
-               Location: oauth.getAuthorizeUrl({
-                   redirect_uri: process.env.APPDOMAIN + "/auth/github/_callback",
-                   scope: "user,repo,gist"
-               })
-           });
-           console.log('Redir: ' + oauth.getAuthorizeUrl());
-           res.end();
-
-
-        }
-      );
+        res.writeHead(303, {
+             Location: oauth.getAuthorizeUrl({
+               redirect_uri: process.env.APPDOMAIN + "/auth/github/_callback",
+               scope: "user,repo,gist"
+             })
+         });
+         res.end();
+  });
   app.get('/auth/github/_callback', function(req, res){
     oauth.getOAuthAccessToken(req.query.code, {}, function (err, access_token, refresh_token) {
         if (err) {
@@ -170,6 +177,18 @@
         res.end();
       });
   });
+  app.get('/auth/github/status', function(req, res){
+    res.writeHead(200, {'Content-Type':'application/json'});
+    var status_response = '';
+    if (lurch.auth.github_token !== ''){
+      status_response = JSON.stringify({'status':true});
+    }
+    else{
+      status_response = JSON.stringify({'status':false});
+    }
+    res.write(status_response);
+    res.end();
+  });
 
   // ========== Lurch Authentication ==========
   passport.serializeUser(function(user, done) {done(null, user);});
@@ -178,7 +197,6 @@
   passport.use(new LocalStrategy(
     function(username, password, done) {
       lurch.checkUserAuth(username, password, function(result){
-        console.log('RESULT' + result);
         if (result === true){
           console.log("Successful login.");
           var user = username;
@@ -198,31 +216,6 @@
   io.on('connection', function (socket) {
     socket.emit('onconnected', {msg: 'SUP DUDE.'});
     console.log('Client Connected: ' + socket);
-
-
-
-    socket.on('auth_check_github', function(msg){
-      console.log('Github check requested');
-      if (lurch.auth.github_token){
-        socket.emit('github_connected');
-      }
-      else {
-        socket.emit('github_disconnected');
-      }
-
-
-    });
-
-    socket.on('auth_check_sfdc', function(msg){
-        if (lurch.auth.sfdc_token){
-          socket.emit('sfdc_connected', lurch.auth.sfdc_user);
-        }
-        else {
-          socket.emit('sfdc_disconnected');
-        }
-    });
-
-
   });
 
 

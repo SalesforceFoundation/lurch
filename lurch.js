@@ -26,6 +26,47 @@ window.onload = function(){
     window.location.replace("./logout");
   });
 
+  $.ajax('/auth/github/status', {
+   type: 'GET',
+   dataType: 'text',
+   success: function(data) {
+     var res = JSON.parse(data);
+     if (res.status === true){
+       console.log('true? ');
+       $(".gh-auth-remove").hide();
+       $(".github-connect").hide();
+       $(".gh-auth-ok").show();
+       $(".github-disconnect").show();
+    }else{
+      $(".gh-auth-remove").show();
+      $(".github-connect").show();
+      $(".gh-auth-ok").hide();
+      $(".github-disconnect").hide();
+    }
+  },
+   error  : function(err)     { console.log('Error retrieving statuses: ' + err); }
+  });
+
+  $.ajax('/auth/sfdc/status', {
+   type: 'GET',
+   dataType: 'text',
+   success: function(data) {
+     var res = JSON.parse(data);
+     if (res.status === true){
+       $(".sfdc-auth-remove").hide();
+       $(".sfdc-connect").hide();
+       $(".sfdc-auth-ok").show();
+       $(".sfdc-disconnect").show();
+    }else{
+      $(".sfdc-auth-remove").show();
+      $(".sfdc-connect").show();
+      $(".sfdc-auth-ok").hide();
+      $(".sfdc-disconnect").hide();
+    }
+  },
+   error  : function(err)     { console.log('Error retrieving statuses: ' + err);}
+  });
+
   io.connectToServer = function ( data ) {
     //connect socket
     io.socket = io.connect('/', {data: data});
@@ -39,30 +80,11 @@ window.onload = function(){
     io.socket.on('onconnected', function( data ) {
       //Note that the data is the object we sent from the server, as is. So we can assume its id exists.
       console.log('Connected successfully to the socket.io server with a server side ID of ' + data.msg );
-      io.socket.emit('auth_check_github', data.msg);
-      io.socket.emit('auth_check_sfdc', data.msg);
       io.socket.on('logout_client', function () {
         console.log('User logout requested');
         window.location.replace("/logout");
       });
-
-      io.socket.on('sfdc_connected', function ( msg ){
-        $(".sfdc-auth-remove").hide();
-        $(".sfdc-connect").hide();
-        
-      });
-      io.socket.on('sfdc_disconnected', function (){
-        $(".sfdc-auth-ok").hide();
-        $(".sfdc-disconnect").hide();
-      });
-
     });
   };
-
   io.connectToServer();
-
-
-
-
-
 };

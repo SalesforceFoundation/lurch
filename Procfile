@@ -1,1 +1,1 @@
-bot: node index.js
+lurch: node index.js
