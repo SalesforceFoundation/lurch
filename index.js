@@ -37,16 +37,9 @@
   var http = require('http').Server(app);
   var io = require('socket.io')(http);
 
-
-
   http.listen(port, function(){
     console.log('Listening on port ' + port);
   });
-
-
-  // ========== GH Webhook Handlers ==========
-  var createHandler = require('github-webhook-handler');
-  var ghhandler = createHandler({ path: '/ghwebhook', secret: process.env.GHWEBHOOK_SECRET });
 
   // ========== Lurch Auth Helper Functions ==========
   lurch.ensureAuthenticated = function(req, res, next) {
