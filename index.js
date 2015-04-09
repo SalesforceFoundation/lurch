@@ -11,6 +11,7 @@
   var passport = require("passport");
   var LocalStrategy = require("passport-local").Strategy;
   var bodyParser = require('body-parser');
+  var crypto = require('crypto');
 
 
   // ========== Express Config ==========
@@ -21,6 +22,7 @@
   var cookieParser = require('cookie-parser');
   var session = require('express-session');
   app.use(bodyParser.urlencoded({extended: true}));
+  app.use(bodyParser.json());
   app.use(cookieParser());
   app.use(session({ secret: 'yourang?',
                     resave: true,
@@ -34,13 +36,21 @@
   // ========== Start server, socket.io and listen for requests ==========
   var http = require('http').Server(app);
   var io = require('socket.io')(http);
+
+
+
   http.listen(port, function(){
     console.log('Listening on port ' + port);
   });
 
+
+  // ========== GH Webhook Handlers ==========
+  var createHandler = require('github-webhook-handler');
+  var ghhandler = createHandler({ path: '/ghwebhook', secret: process.env.GHWEBHOOK_SECRET });
+
   // ========== Lurch Auth Helper Functions ==========
   lurch.ensureAuthenticated = function(req, res, next) {
-    if (req.isAuthenticated()) {
+    if (req.isAuthenticated() || req.path === '/ghwebhook') {
       return next();
     }
     else{
@@ -99,8 +109,29 @@
   app.use('/', function(req, res, next){
     lurch.ensureAuthenticated(req, res, next);
   });
-  app.use('/', express.static(__dirname + '/'));
+  app.use('/ghwebhook', function(req, res){
+    var gh_sig   = req.headers['x-hub-signature'];
+    var gh_event = req.headers['x-github-event'];
+    var event_id = req.headers['x-github-delivery'];
+    var lurch_gh_sig = '';
 
+    if (!gh_sig || !gh_event || !event_id){
+      res.status(400);
+      res.send('Missing required header value.');
+    }else{
+      lurch_gh_sig = 'sha1=' + crypto.createHmac('sha1', process.env.GHWEBHOOK_SECRET).update(JSON.stringify(req.body)).digest('hex');
+      if (gh_sig !== lurch_gh_sig){
+        res.status(403);
+        res.send('Mismatch signature');
+      }else{
+        lurch.processGithubEvent(gh_event, event_id, req.body);
+        res.status(200);
+        res.send();
+      }
+    }
+  });
+
+  app.use('/', express.static(__dirname + '/'));
 
   // ========== Salesforce Authentication ==========
   app.get('/auth/sfdc', function(req,res){
@@ -119,6 +150,9 @@
             console.log('Logging in...');
             console.log(resp);
           });
+
+          //get a list of the valid github users from sfdc
+
           res.redirect('/index.html');
         } else {
           console.log('Error: ' + err.message);
@@ -163,7 +197,6 @@
           res.end(err + "");
           return;
         }
-
         lurch.auth.github_token = access_token;
 
         // authenticate github API
@@ -218,26 +251,7 @@
     console.log('Client Connected: ' + socket);
   });
 
-
-
-  // ========== GH Webhook Handlers ==========
-  var createHandler = require('github-webhook-handler');
-  var ghhandler = createHandler({ path: '/ghwebhook', secret: process.env.GHWEBHOOK_SECRET });
-
-  ghhandler.on('error', function (err) {
-    console.error('Error:', err.message);
-  });
-
-  ghhandler.on('push', function (event) {
-    console.log('Received a push event for %s to %s',
-      event.payload.repository.name,
-      event.payload.ref);
-  });
-
-  ghhandler.on('issues', function (event) {
-    console.log('Received an issue event for % action=%s: #%d %s',
-      event.payload.repository.name,
-      event.payload.action,
-      event.payload.issue.number,
-      event.payload.issue.title);
-  });
+  // ========== Lurch Event Processors ==========
+  lurch.processGithubEvent = function (event_name, event_id, event_body) {
+    console.log('Processing event ' + event_id + ' of type: ' + event_name);
+  };

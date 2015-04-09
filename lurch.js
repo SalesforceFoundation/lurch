@@ -32,7 +32,6 @@ window.onload = function(){
    success: function(data) {
      var res = JSON.parse(data);
      if (res.status === true){
-       console.log('true? ');
        $(".gh-auth-remove").hide();
        $(".github-connect").hide();
        $(".gh-auth-ok").show();
@@ -44,7 +43,7 @@ window.onload = function(){
       $(".github-disconnect").hide();
     }
   },
-   error  : function(err)     { console.log('Error retrieving statuses: ' + err); }
+   error: function(err){ console.log('Error retrieving statuses: ' + err);}
   });
 
   $.ajax('/auth/sfdc/status', {
@@ -64,7 +63,7 @@ window.onload = function(){
       $(".sfdc-disconnect").hide();
     }
   },
-   error  : function(err)     { console.log('Error retrieving statuses: ' + err);}
+   error: function(err){ console.log('Error retrieving statuses: ' + err);}
   });
 
   io.connectToServer = function ( data ) {
