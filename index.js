@@ -5,6 +5,7 @@
   lurch.auth.sfdc_token = '';
   lurch.auth.sfdc_user = '';
   lurch.auth.github_user = '';
+  lurch.db = require('./lurch_db.js');
 
   // ========== Nforce and Passport Libs ==========
   var nforce = require('nforce');
@@ -248,3 +249,6 @@
   lurch.processGithubEvent = function (event_name, event_id, event_body) {
     console.log('Processing event ' + event_id + ' of type: ' + event_name);
   };
+
+  // ========== Connect to Mongo via Mongoose ==========
+  lurch.db.connect();
