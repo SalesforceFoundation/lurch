@@ -5,6 +5,7 @@
   lurch.auth.sfdc_token = '';
   lurch.auth.sfdc_user = '';
   lurch.auth.github_user = '';
+  lurch.valid_users = [];
   lurch.db = require('./lurch_db.js');
 
   // ========== Nforce and Passport Libs ==========
@@ -135,29 +136,28 @@
   });
 
   app.get('/auth/sfdc/_callback', function(req, res) {
-      org.authenticate({code: req.query.code}, function(err, resp){
-        if(!err) {
-          console.log('SFDC Access Token: ' + resp.access_token);
-          lurch.auth.sfdc_token = resp.access_token;
-          //query force.com id service
-          org.getIdentity({}, function(err, resp){
-            console.log('Logging in...');
-            console.log(resp);
-          });
-
-          //get a list of the valid github users from sfdc
-
+    org.authenticate({code: req.query.code}, function(err, resp){
+      if(!err) {
+        console.log('SFDC Access Token: ' + resp.access_token);
+        lurch.auth.sfdc_token = resp.access_token;
+        //query force.com id service
+        org.getIdentity({}, function(err, resp){
+          console.log('Logging in...');
+          lurch.auth.sfdc_user = resp.username;
+          console.log(resp);
           res.redirect('/index.html');
-        } else {
-          console.log('Error: ' + err.message);
-        }
-      });
+        });
+
+        lurch.setValidGithubUsers();
+      }
+    });
   });
+
   app.get('/auth/sfdc/status', function(req, res){
     res.writeHead(200, {'Content-Type':'application/json'});
     var status_response = '';
     if (lurch.auth.sfdc_token !== ''){
-      status_response = JSON.stringify({'status':true});
+      status_response = JSON.stringify({'status':true, 'username':lurch.auth.sfdc_user});
     }
     else{
       status_response = JSON.stringify({'status':false});
@@ -169,6 +169,7 @@
     var r = res;
     org.revokeToken({token: lurch.auth.sfdc_token}, function(err, resp) {
       lurch.auth.sfdc_token = '';
+      console.log(resp);
       res.redirect('/index.html');
     });
   });
@@ -248,6 +249,29 @@
   // ========== Lurch Event Processors ==========
   lurch.processGithubEvent = function (event_name, event_id, event_body) {
     console.log('Processing event ' + event_id + ' of type: ' + event_name);
+    //we only care about events that are issue comments or other
+    //since lurch will only add github events on comment **lurch: add** by valid users
+    //valid users determined during the original authentication sequence to SFDC
+    //and can be re-evaluated by the client at any point
+
+
+  };
+
+  lurch.setValidGithubUsers = function () {
+    //retrieve the list of valid issue adders based on
+    //the github userid field in AA
+    var q = 'SELECT Id, FirstName, LastName, UserName, Github_Name__c FROM User WHERE Github_Name__c != ""';
+    lurch.valid_users = [];
+
+    org.query({ query: q }, function(err, resp){
+      //if we find users, populate our list of valid users
+      if(!err && resp.records) {
+        for (i=0; i<resp.records.length; i++){
+          lurch.valid_users[lurch.valid_users.length] = resp.records[i];
+          console.log("Added user " + resp.records[i]);
+        }
+      }
+    });
   };
 
   // ========== Connect to Mongo via Mongoose ==========
