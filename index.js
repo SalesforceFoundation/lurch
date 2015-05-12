@@ -7,6 +7,7 @@
   lurch.auth.github_user = '';
   lurch.valid_users = [];
   lurch.db = require('./lurch_db.js');
+  lurch.el = require('./lurch_elements.js');
 
   // ========== Nforce and Passport Libs ==========
   var nforce = require('nforce');
@@ -144,11 +145,10 @@
         org.getIdentity({}, function(err, resp){
           console.log('Logging in...');
           lurch.auth.sfdc_user = resp.username;
-          console.log(resp);
+          //console.log(resp);
           res.redirect('/index.html');
+          lurch.findValidUsers();
         });
-
-        lurch.setValidGithubUsers();
       }
     });
   });
@@ -167,9 +167,9 @@
   });
   app.get('/auth/sfdc/revoke', function(req, res){
     var r = res;
+    console.log('SFDC revoke requested');
     org.revokeToken({token: lurch.auth.sfdc_token}, function(err, resp) {
       lurch.auth.sfdc_token = '';
-      console.log(resp);
       res.redirect('/index.html');
     });
   });
@@ -249,6 +249,51 @@
   // ========== Lurch Event Processors ==========
   lurch.processGithubEvent = function (event_name, event_id, event_body) {
     console.log('Processing event ' + event_id + ' of type: ' + event_name);
+
+    if (event_name === 'issue_comment' || event_name === 'issues' || event_name === 'pull_request'){
+      //check that this is for a valid repository that we have synced
+      console.log('Event for : ' + event_body.repository.name);
+
+      //check if the relevent event already has an entry in mongo
+
+      switch (event_name){
+        case 'issue_comment':
+    //      lurch.issueCommentHandler(event_body);
+        break;
+        case 'issues':
+        //console.log(lurch.db.getDB());
+            lurch.db.findIssueRecord(event_id, function (results){
+                //no results returned
+                if (!results || results.length < 1){
+                  console.log('No results found');
+                  //createa  new record
+                  lurch.db.createIssueRecord(event_id, function (results){
+
+
+
+                  });
+
+                }else{
+                  //do something with the already existing record
+                  //we shouldn't have more than one, so always select for the
+                  //first element in the collection that matches
+                  console.log('Results found');
+                  var issue = results[0];
+                  //based on what happened in the event, modify the existing issue,
+                  //update it, and then push the updates to github
+
+                }
+
+            });
+
+//          lurch.issueHandler(event_body);
+        break;
+        case 'pull_request':
+    //      lurch.pullHandler(event_body);
+        break;
+      }
+    }
+
     //we only care about events that are issue comments or other
     //since lurch will only add github events on comment **lurch: add** by valid users
     //valid users determined during the original authentication sequence to SFDC
@@ -257,21 +302,44 @@
 
   };
 
-  lurch.setValidGithubUsers = function () {
-    //retrieve the list of valid issue adders based on
-    //the github userid field in AA
-    var q = 'SELECT Id, FirstName, LastName, UserName, Github_Name__c FROM User WHERE Github_Name__c != ""';
-    lurch.valid_users = [];
+  lurch.processSFDCEvent = function () {
 
+
+  };
+
+  //retrieve the list of valid issue adders based on the Github_Username__c field in the AA sfdc org
+  lurch.findValidUsers = function () {
+    var q = "SELECT Id, FirstName, LastName, UserName, Github_Username__c FROM User WHERE Github_Username__c != ''";
+    lurch.valid_users = [];
     org.query({ query: q }, function(err, resp){
       //if we find users, populate our list of valid users
-      if(!err && resp.records) {
+      if (err){
+        console.log(err);
+      }
+      else if(!err && resp.records) {
         for (i=0; i<resp.records.length; i++){
           lurch.valid_users[lurch.valid_users.length] = resp.records[i];
-          console.log("Added user " + resp.records[i]);
+          var u = JSON.stringify(resp.records[i]);
+          for (var i = 0; i < lurch.valid_users.length; i++){
+            console.log('User ' + lurch.valid_users[i].get('github_username__c') + ' has been added.');
+          }
+          console.log('Emitting user ' + u);
+          io.sockets.emit('found_users', {user: u});
         }
       }
+      //no records found
+      else{
+        //notify the client that no valid user records were found
+        io.sockets.emit('no_valid_users', {});
+      }
+
+
     });
+  };
+
+  lurch.findValidRepos = function () {
+
+
   };
 
   // ========== Connect to Mongo via Mongoose ==========

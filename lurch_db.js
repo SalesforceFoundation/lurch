@@ -1,41 +1,45 @@
-var mongoose = require('mongoose');
+var MongoClient = require('mongodb').MongoClient;
+var assert = require('assert');
 var connection_string = process.env.MONGOLAB_URI || 'mongodb://localhost/HelloMongoose';
-
-
-// ========== Mongoose Schema ==========
-var issueSchema = new mongoose.Schema({
-  githubid: { type: String, trim: true },
-  sfdcid: { type: String, trim: true },
-  github_userid: { type: String, trim: true },
-  sfdc_userid: { type: String, trim: true },
-  created_date: { type: Number, min: 0 },
-  repo: { type: Number, min: 0 },
-  comments: [{ body: String, commenter: String, date: Date }]
-});
-
-var issueCommentSchema = new mongoose.Schema({
-
-});
-var pullSchema = new mongoose.Schema({
-
-});
-var releaseSchema = new mongoose.Schema({
-
-});
+var lurch_el = require('./lurch_elements.js');
+var mongodb;
 
 module.exports = {
-
+  getDB: function () {
+    return mongodb;
+  },
   connect: function () {
-    mongoose.connect(connection_string, function (err, res) {
+    MongoClient.connect(connection_string, function(err, db) {
       if (err) {
-      console.log ('ERROR connecting to: ' + connection_string + '. ' + err);
+        console.log('ERROR connecting to: ' + connection_string + '. ' + err);
       } else {
-      console.log ('Succeeded connected to: ' + connection_string);
+        console.log('Succeeded connected to: ' + connection_string);
+        console.log('DB: ' + db);
+        mongodb = db;
+      }
+    });
+  },
+  findIssueRecord: function (record_id, callback) {
+    var issue_collection = mongodb.collection('issues');
+    var docs = issue_collection.find({githubid: record_id});
+    callback(docs);
+  },
+  createIssueRecord: function (issue, callback) {
+    var new_issue = lurch_el.createIssue(issue);
+
+    //insert the new issue
+    var issue_collection = mongodb.collection('issues');
+    issue_collection.insert(new_issue, function (err, result){
+      if (err){
+        console.log('Error inserting new issue into Mongo');
+        callback(null);
+      }
+      else{
+        console.log('Success inserting new issue into Mongo');
+        callback(result);
       }
     });
   }
-
-  
 
 
 };

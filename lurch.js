@@ -74,14 +74,23 @@ window.onload = function(){
       console.log('Connection error: ' + err);
     });
 
-    console.log('attempting connection...');
-
+    //on a successful connection, set all of our other event handlers
     io.socket.on('onconnected', function( data ) {
-      //Note that the data is the object we sent from the server, as is. So we can assume its id exists.
-      console.log('Connected successfully to the socket.io server with a server side ID of ' + data.msg );
       io.socket.on('logout_client', function () {
         console.log('User logout requested');
         window.location.replace("/logout");
+      });
+
+      //no valid github users found in AA, so no data will be transferred, notify the user
+      io.socket.on('no_valid_users', function (data) {
+        $('#loglist').prepend($('<li class="list-group-item">No valid Github users found in Agile Accelerator.  Populate existing SFDC users Github_username__c field to allow a user to update Agile Accelerator using lurch.</li>'));
+      });
+
+      //no valid github users found in AA, so no data will be transferred, notify the user
+      io.socket.on('found_users', function (data) {
+        var user = JSON.parse(data.user);
+        var emitstring = "User " + user.username + " is authorized as " + user.github_username__c;
+        $('#loglist').prepend('<li class="list-group-item">' + emitstring + '</li>');
       });
     });
   };
