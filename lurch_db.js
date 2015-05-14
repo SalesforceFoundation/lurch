@@ -21,11 +21,20 @@ module.exports = {
   },
   findIssueRecord: function (record_id, callback) {
     var issue_collection = mongodb.collection('issues');
-    var docs = issue_collection.find({githubid: record_id});
-    callback(docs);
+    var docs = issue_collection.find({githubid: record_id}).toArray(function(err, docs){
+      if (err){
+        callback(null);
+      }
+      else{
+        console.log('Returning docs');
+        console.log('Docs: ' + docs.result);
+        console.log('Docs: ' + docs.ops);
+        callback(docs);
+      }
+    });
   },
-  createIssueRecord: function (issue, callback) {
-    var new_issue = lurch_el.createIssue(issue);
+  createIssueRecord: function (issue_body, callback) {
+    var new_issue = lurch_el.createIssue(issue_body);
 
     //insert the new issue
     var issue_collection = mongodb.collection('issues');

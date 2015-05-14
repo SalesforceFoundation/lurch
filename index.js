@@ -263,17 +263,11 @@
         case 'issues':
         //console.log(lurch.db.getDB());
             lurch.db.findIssueRecord(event_id, function (results){
+
+
+                console.log ('Result size: ' + results);
                 //no results returned
-                if (!results || results.length < 1){
-                  console.log('No results found');
-                  //createa  new record
-                  lurch.db.createIssueRecord(event_id, function (results){
-
-
-
-                  });
-
-                }else{
+                if (results && results.result){
                   //do something with the already existing record
                   //we shouldn't have more than one, so always select for the
                   //first element in the collection that matches
@@ -281,6 +275,18 @@
                   var issue = results[0];
                   //based on what happened in the event, modify the existing issue,
                   //update it, and then push the updates to github
+
+
+
+                }else{
+                  console.log('No results found');
+                  //createa  new record
+                  lurch.db.createIssueRecord(event_body, function (results){
+
+
+
+                  });
+
 
                 }
 
