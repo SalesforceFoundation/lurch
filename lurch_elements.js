@@ -8,7 +8,7 @@ module.exports = {
 
     //coming from github
     if (issue_body.issue !== undefined){
-      issue.githubid = '';
+      issue.githubid = issue_body.issue.id;
 
       issue.title = issue_body.issue.title;
       issue.body = issue_body.issue.body;

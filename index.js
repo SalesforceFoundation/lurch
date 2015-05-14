@@ -250,6 +250,14 @@
   lurch.processGithubEvent = function (event_name, event_id, event_body) {
     console.log('Processing event ' + event_id + ' of type: ' + event_name);
 
+
+    //we only want to parse this event if the following things are true:
+    /*
+      1.  The event creator is a valid user AND
+          1.  The event already has an entry in mongo based on the GH Id; OR
+          2.  The event does not have an entry in mongo, but has a body that indicates a lurch action (add/delete/connect);
+    */
+
     if (event_name === 'issue_comment' || event_name === 'issues' || event_name === 'pull_request'){
       //check that this is for a valid repository that we have synced
       console.log('Event for : ' + event_body.repository.name);
@@ -261,41 +269,30 @@
     //      lurch.issueCommentHandler(event_body);
         break;
         case 'issues':
-        //console.log(lurch.db.getDB());
-            lurch.db.findIssueRecord(event_id, function (results){
+          var ghid = event_body.issue.id;
+          lurch.db.findIssueRecord(event_id, function (results){
+            console.log ('Result size: ' + results);
+            //no results returned
+            if (results && results.result){
+              //do something with the already existing recor
+              //we shouldn't have more than one, so always select for the
+              //first element in the collection that matches
+              console.log('Results found');
+              var issue = results[0];
+              //based on what happened in the event, modify the existing issue,
+              //update it, and then push the updates to github
+            }else{
+              console.log('No results found');
+              //createa  new record
+              lurch.db.createIssueRecord(event_body, function (results){
 
+              });
+            }
+          });
 
-                console.log ('Result size: ' + results);
-                //no results returned
-                if (results && results.result){
-                  //do something with the already existing record
-                  //we shouldn't have more than one, so always select for the
-                  //first element in the collection that matches
-                  console.log('Results found');
-                  var issue = results[0];
-                  //based on what happened in the event, modify the existing issue,
-                  //update it, and then push the updates to github
-
-
-
-                }else{
-                  console.log('No results found');
-                  //createa  new record
-                  lurch.db.createIssueRecord(event_body, function (results){
-
-
-
-                  });
-
-
-                }
-
-            });
-
-//          lurch.issueHandler(event_body);
         break;
         case 'pull_request':
-    //      lurch.pullHandler(event_body);
+
         break;
       }
     }

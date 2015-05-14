@@ -13,8 +13,7 @@ module.exports = {
       if (err) {
         console.log('ERROR connecting to: ' + connection_string + '. ' + err);
       } else {
-        console.log('Succeeded connected to: ' + connection_string);
-        console.log('DB: ' + db);
+        console.log('Successfully connected to: ' + connection_string);
         mongodb = db;
       }
     });
