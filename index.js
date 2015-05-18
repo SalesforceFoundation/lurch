@@ -309,6 +309,31 @@
   };
 
   lurch.sendEventToSFDC = function (event_body, event_name, event_repo) {
+    var opts = {
+        uri: 'lurch',
+        method: 'post',
+        urlParams: 'repo=' + event_repo + '&type=' + event_name,
+        body: event_body
+    };
+    org.apexRest(opts, function (error, result) {
+      if (!error){
+        console.log('Successfully sent.');
+
+        //SET RETURNED VALUE IN TRACKER
+
+
+
+      }
+      else{
+        console.log('Apex REST failed with an error of ' + error);
+      }
+
+
+    });
+
+
+
+
 
 
   };

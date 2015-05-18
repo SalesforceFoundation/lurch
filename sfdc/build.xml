@@ -1,0 +1,10 @@
+<project name="Lurch" default="deploy" basedir="." xmlns:sf="antlib:com.salesforce">
+
+    <!-- Load the package requirements from version.properties -->
+    <loadproperties srcFile="build.properties"/>
+
+<target name="retrieveLurch">
+  <sf:retrieve username="${sf.username}" password="${sf.password}" serverurl="${sf.serverurl}" retrieveTarget="src" packageNames="Lurch"/>
+</target>
+
+</project>

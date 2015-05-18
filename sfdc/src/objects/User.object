@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fields>
+        <fullName>Github_Username__c</fullName>
+        <description>Username of the Github user. If this field is populated, lurch will automatically respond to requests for syncs, unsyncs, etc.</description>
+        <externalId>false</externalId>
+        <inlineHelpText>Username of the Github user. If this field is populated, lurch will automatically respond to requests for syncs, unsyncs, etc.</inlineHelpText>
+        <label>Github Username</label>
+        <length>255</length>
+        <required>false</required>
+        <trackFeedHistory>false</trackFeedHistory>
+        <type>Text</type>
+        <unique>false</unique>
+    </fields>
+</CustomObject>

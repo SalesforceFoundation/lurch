@@ -2,7 +2,7 @@
 
 module.exports = {
 
-  createIssue: function (issue_body){
+  createTracker: function (issue_body){
 
     var issue = {};
 

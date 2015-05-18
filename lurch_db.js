@@ -26,13 +26,13 @@ module.exports = {
       }
       else{
         console.log('Returning tracker results');
-        console.log('Docs: ' + docs.length); 
+        console.log('Docs: ' + docs.length);
         callback(docs);
       }
     });
   },
   createTrackingRecord: function (issue_body, callback) {
-    var new_issue = lurch_el.createIssue(issue_body);
+    var new_tracker = lurch_el.createTracker(issue_body);
 
     //insert the new issue
     var issue_collection = mongodb.collection('trackers');
