@@ -248,64 +248,67 @@
 
   // ========== Lurch Event Processors ==========
   lurch.processGithubEvent = function (event_name, event_id, event_body) {
-    console.log('Processing event ' + event_id + ' of type: ' + event_name);
-
-
-    //we only want to parse this event if the following things are true:
-    /*
-      1.  The event creator is a valid user AND
-          1.  The event already has an entry in mongo based on the GH Id; OR
-          2.  The event does not have an entry in mongo, but has a body that indicates a lurch action (add/delete/connect);
+    /*only listen and forward:
+    1.  anything with **lurch:add from a known user
+    2.  anything with **lurch:attach w-xxxxxxxxxxxx or epic:XXXXXXX from a known user
+    3.  anything with **lurch:remove from a known user
+    4.  anything currently being actively tracked, regardless of user
+    5.  pull requests from a known user
+    (?) 5.  milestones
     */
 
+    //if its an event we care about
     if (event_name === 'issue_comment' || event_name === 'issues' || event_name === 'pull_request'){
-      //check that this is for a valid repository that we have synced
-      console.log('Event for : ' + event_body.repository.name);
 
-      //check if the relevent event already has an entry in mongo
-
+      //set the tracking id to search for existing connected AA issues
+      var tracking_id = '';
       switch (event_name){
         case 'issue_comment':
-    //      lurch.issueCommentHandler(event_body);
+          tracking_id = event_body.issue.id;
         break;
         case 'issues':
-          var ghid = event_body.issue.id;
-          lurch.db.findIssueRecord(event_id, function (results){
-            console.log ('Result size: ' + results);
-            //no results returned
-            if (results && results.result){
-              //do something with the already existing recor
-              //we shouldn't have more than one, so always select for the
-              //first element in the collection that matches
-              console.log('Results found');
-              var issue = results[0];
-              //based on what happened in the event, modify the existing issue,
-              //update it, and then push the updates to github
-            }else{
-              console.log('No results found');
-              //createa  new record
-              lurch.db.createIssueRecord(event_body, function (results){
-
-              });
-            }
-          });
-
+          tracking_id = event_body.issue.id;
         break;
         case 'pull_request':
-
+        tracking_id = event_body.pull_request.id;
         break;
       }
-    }
 
-    //we only care about events that are issue comments or other
-    //since lurch will only add github events on comment **lurch: add** by valid users
-    //valid users determined during the original authentication sequence to SFDC
-    //and can be re-evaluated by the client at any point
+      console.log('Processing ' + event_name + ' ' + tracking_id + ' for ' + event_body.repository.name);
+
+      //see if there are any existing connected AA issues
+      lurch.db.findTrackingRecord(tracking_id, function (results){
+        console.log ('Result size: ' + results.length);
+
+        //this is being tracked, forward to sfdc
+        if (results.length > 0){
+          console.log('Results found');
+          lurch.sendEventToSFDC(event_body, event_name, event_repo);
+        }
+        //if its a lurch command from a valid user for a valid repo
+        //make changes as necessary and forward to sfdc
+        else{
+          lurch.githubEventUserRepoCheck(event_body.sender.login, event_body.repository.name, function (isValidUserRepo) {
+            if (isValidUserRepo){
+              if (event_body.indexOf("**lurch") > -1){
+                lurch.sendEventToSFDC(event_body, event_name, event_repo);
+              }
+            }
+            else{
+              console.log('Invalid Event');
+            }
+          });
+        }
+      });
+    }
+  };
+
+  lurch.processSFDCEvent = function () {
 
 
   };
 
-  lurch.processSFDCEvent = function () {
+  lurch.sendEventToSFDC = function (event_body, event_name, event_repo) {
 
 
   };
@@ -336,13 +339,31 @@
         io.sockets.emit('no_valid_users', {});
       }
 
-
     });
   };
 
   lurch.findValidRepos = function () {
 
 
+  };
+
+  lurch.githubEventUserRepoCheck = function(event_sender, repo_name, callback) {
+    lurch.db.verifyRepo(repo_name, function (results){
+      if (results.length > 0){
+        console.log('Repo verified.  Checking users.');
+        var hasUser = false;
+        for (i=0; i<lurch.valid_users.length; i++){
+          if (lurch.valid_users[i].get('github_username__c') === event_sender){
+            hasUser = true;
+          }
+        }
+        callback(hasUser);
+      }
+      else{
+        console.log('No matching repo found');
+        callback(false);
+      }
+    });
   };
 
   // ========== Connect to Mongo via Mongoose ==========

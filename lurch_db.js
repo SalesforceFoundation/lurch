@@ -18,25 +18,24 @@ module.exports = {
       }
     });
   },
-  findIssueRecord: function (record_id, callback) {
-    var issue_collection = mongodb.collection('issues');
+  findTrackingRecord: function (record_id, callback) {
+    var issue_collection = mongodb.collection('trackers');
     var docs = issue_collection.find({githubid: record_id}).toArray(function(err, docs){
       if (err){
         callback(null);
       }
       else{
-        console.log('Returning docs');
-        console.log('Docs: ' + docs.result);
-        console.log('Docs: ' + docs.ops);
+        console.log('Returning tracker results');
+        console.log('Docs: ' + docs.length); 
         callback(docs);
       }
     });
   },
-  createIssueRecord: function (issue_body, callback) {
+  createTrackingRecord: function (issue_body, callback) {
     var new_issue = lurch_el.createIssue(issue_body);
 
     //insert the new issue
-    var issue_collection = mongodb.collection('issues');
+    var issue_collection = mongodb.collection('trackers');
     issue_collection.insert(new_issue, function (err, result){
       if (err){
         console.log('Error inserting new issue into Mongo');
@@ -47,7 +46,20 @@ module.exports = {
         callback(result);
       }
     });
-  }
+  },
+  verifyRepo: function (repo_name, callback) {
+    var repo_collection = mongodb.collection('repos');
+    var docs = repo_collection.find({repo_name: repo_name}).toArray(function (err, docs){
+      if (err){
+        callback(null);
+      }
+      else{
+        console.log('Returning repo results');
+        console.log('Docs: ' + docs.length);
+        callback(docs);
+      }
+    });
 
+  }
 
 };
