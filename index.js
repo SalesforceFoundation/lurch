@@ -9,6 +9,13 @@
   lurch.db = require('./lurch_db.js');
   lurch.el = require('./lurch_elements.js');
 
+  // ========== Agile Accelerator Default vars ==========
+  var defaultAssignee = process.env.AADEFAULTASSIGNEE || '00580000005eABFAA2';
+  var defaultProductOwner = process.env.AADEFAULTPRODUCTOWNER || '00580000005eABFAA2';
+  var defaultProductTag = process.env.AADEFAULTPRODUCTTAG || 'a2Pn0000000D2tYEAS';
+  var defaultScrumTeam = process.env.AADEFAULTSCRUMTEAM || 'a2cn000000019jLAAQ';
+  var defaultRecordType = process.env.AADEFAULTRECORDTYPE || '01280000000BlTnAAK';
+
   // ========== Nforce and Passport Libs ==========
   var nforce = require('nforce');
   var passport = require("passport");
@@ -265,12 +272,15 @@
       switch (event_name){
         case 'issue_comment':
           tracking_id = event_body.issue.id;
+          jbody = JSON.stringify(event_body.comment.body);
         break;
         case 'issues':
           tracking_id = event_body.issue.id;
+          jbody = JSON.stringify(event_body.issue.body);
         break;
         case 'pull_request':
-        tracking_id = event_body.pull_request.id;
+          tracking_id = event_body.pull_request.id;
+          jbody = JSON.stringify(event_body.issue.body);
         break;
       }
 
@@ -280,27 +290,118 @@
       lurch.db.findTrackingRecord(tracking_id, function (results){
         console.log ('Result size: ' + results.length);
 
-        //this is being tracked, forward to sfdc
-        if (results.length > 0){
-          console.log('Results found');
-          lurch.sendEventToSFDC(event_body, event_name, event_repo);
+        //get the lurch command, if any
+        var lurchcommand = '';
+        console.log('jbody: ' + jbody);
+        //if there's a lurch command, get it
+        if (jbody.indexOf('**lurch:') > -1){
+          var command = jbody.substring(jbody.indexOf('**lurch:'), jbody.length - 1);
+          lurchcommand = command.replace('**lurch:', '').trim();
+          console.log('LURCH COMMAND: ' + lurchcommand);
         }
-        //if its a lurch command from a valid user for a valid repo
-        //make changes as necessary and forward to sfdc
-        else{
-          lurch.githubEventUserRepoCheck(event_body.sender.login, event_body.repository.name, function (isValidUserRepo) {
-            if (isValidUserRepo){
-              if (event_body.indexOf("**lurch") > -1){
-                lurch.sendEventToSFDC(event_body, event_name, event_repo);
-              }
+
+        lurch.githubEventUserRepoCheck(event_body.sender.login, event_body.repository.name, function (isValidUserRepo) {
+          //if we're already actively tracking this issue...
+          if (results.length > 0){
+            if (event_name === 'issue_comment'){
+              console.log('Adding user comment to AA Issue');
+
+
+
+              //add the comment to the AA issue silently
+            }
+            else if (lurchcommand === 'detach' && isValidUserRepo){
+              console.log('Detaching Issue from tracker');
+              //remove record from mongo
+              //detach from AA issue and update AA accordingly
+              //postback to issue that its been detached
             }
             else{
-              console.log('Invalid Event');
+              console.log('Non-relevent activity on a tracked issue.');
             }
-          });
-        }
-      });
-    }
+          }
+          //not tracked, but a valid user/repo and lurch command identified
+          else if (isValidUserRepo && lurchcommand !== ''){
+            if (lurchcommand === 'add'){
+              console.log('Adding a new AA work item for ' + tracking_id);
+
+              var uid = '';
+              //get the user id for assignment
+              for (i=0; i<lurch.valid_users.length; i++){
+                if (lurch.valid_users[i].get('github_username__c') === event_body.sender.login){
+                  uid = lurch.valid_users[i].get('id');
+                }
+              }
+
+              //create new AA issue
+              var wrk = nforce.createSObject('agf__ADM_Work__c');
+              wrk.set('agf__Assignee__c', defaultAssignee);//default user assignment
+              wrk.set('agf__Details__c', event_body.issue.body);
+              wrk.set('agf__Perforce_Status__c', 'Tracking');
+              wrk.set('agf__Product_Owner__c', defaultProductOwner);//default product owner
+              wrk.set('agf__Product_Tag__c', defaultProductTag);//default product tag
+              wrk.set('agf__Scrum_Team__c', defaultScrumTeam);//default scrum team
+              wrk.set('agf__Status__c', 'New - Lurch Add');
+              wrk.set('agf__Subject__c', event_body.issue.title);
+              wrk.set('OwnerId', uid);//lurch add owner
+              wrk.set('RecordTypeId', defaultRecordType);//default record type
+
+              org.insert({ sobject: wrk }, function(err, resp){
+                if(!err){
+                  console.log('New AA issue successfully inserted: ' + resp.id);
+                  var q = 'SELECT Name from agf__ADM_Work__c WHERE id = "' + resp.id + '" LIMIT 1';
+
+                  org.query({ query: q }, function(err, resp){
+                    if(!err && resp.records) {
+                      var nwrk = resp.records[0];
+                      var work_item_name = nwrk.get('Name');
+
+
+
+
+                    }
+                  });
+
+
+
+
+
+
+
+
+                  //add to mongo
+                  lurch.db.createTrackingRecord(tracking_id, resp.id, function(result){
+
+
+
+                  });
+                }
+                else{
+                  console.log('Error inserting work item: ' + err);
+                }
+              });
+
+
+
+              //postback to github issue with the work item # & URL
+            }
+            else if (lurchcommand.indexOf('attach') > -1){
+              var issue_num = lurchcommand.replace('attach', '').trim();
+              console.log('Attaching issue to existing work item ' + issue_num);
+
+              //get the AA issue from SFDC
+              //post to the AA issue
+              //post the issue link back to github
+              //enter a mongo row
+            }
+
+          }
+          else{
+            console.log('Invalid user/repo and/or no lurch command found.');
+          }
+        });//eventUserReportCheck
+      });//find trackingRecord
+    }//event type checker
   };
 
   lurch.processSFDCEvent = function () {
@@ -309,13 +410,20 @@
   };
 
   lurch.sendEventToSFDC = function (event_body, event_name, event_repo) {
-    var opts = {
-        uri: 'lurch',
-        method: 'post',
-        urlParams: 'repo=' + event_repo + '&type=' + event_name,
-        body: event_body
-    };
+    //event is either already being tracked, or has a lurch command associated
+    //now decide what to do with it in SFDC
+    var opts = "{uri: 'lurch', method: 'post', urlParams: 'repo=' + event_repo + '&type=' + event_name, body: event_body}";
+
+
+    //for now, only handle IssuesEvent or a IssueCommentEvent
+    if (event_name === 'issues'){
+
+
+    }
+
+
     org.apexRest(opts, function (error, result) {
+
       if (!error){
         console.log('Successfully sent.');
 
@@ -367,11 +475,6 @@
     });
   };
 
-  lurch.findValidRepos = function () {
-
-
-  };
-
   lurch.githubEventUserRepoCheck = function(event_sender, repo_name, callback) {
     lurch.db.verifyRepo(repo_name, function (results){
       if (results.length > 0){
@@ -391,5 +494,5 @@
     });
   };
 
-  // ========== Connect to Mongo via Mongoose ==========
+  // ========== Connect to Mongo ==========
   lurch.db.connect();

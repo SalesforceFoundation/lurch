@@ -36,7 +36,7 @@ module.exports = {
 
     //insert the new issue
     var issue_collection = mongodb.collection('trackers');
-    issue_collection.insert(new_issue, function (err, result){
+    issue_collection.insert(new_tracker, function (err, result){
       if (err){
         console.log('Error inserting new issue into Mongo');
         callback(null);
