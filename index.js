@@ -279,19 +279,23 @@
       //set the tracking id to search for existing connected AA issues
       var tracking_id = '';
       var issue_number = '';
+      var gh_url = '';
       switch (event_name){
         case 'issue_comment':
           issue_number = event_body.issue.number;
+          gh_url = event_body.issue.html_url;
           tracking_id = event_body.issue.id;
           jbody = JSON.stringify(event_body.comment.body);
         break;
         case 'issues':
           issue_number = event_body.issue.number;
+          gh_url = event_body.issue.html_url;
           tracking_id = event_body.issue.id;
           jbody = JSON.stringify(event_body.issue.body);
         break;
         case 'pull_request':
-        issue_number = event_body.pull_request.number;
+          issue_number = event_body.pull_request.number;
+          gh_url = event_body.pull_request.html_url;
           tracking_id = event_body.pull_request.id;
           jbody = JSON.stringify(event_body.issue.body);
         break;
@@ -300,7 +304,7 @@
       console.log('Processing ' + event_name + ' ' + tracking_id + ' for ' + event_body.repository.name);
 
       //see if there are any existing connected AA issues
-      lurch.db.findTrackingRecord(tracking_id, function (results){
+      lurch.db.findTrackingRecord(issue_number, event_body.repository.name, function (results){
         console.log ('Result size: ' + results.length);
 
         //get the lurch command, if any
@@ -337,7 +341,6 @@
           else if (isValidUserRepo && lurchcommand !== ''){
             if (lurchcommand === 'add'){
               console.log('Adding a new AA work item for ' + tracking_id);
-
               var uid = '';
               //get the user id for assignment
               for (i=0; i<lurch.valid_users.length; i++){
@@ -345,11 +348,14 @@
                   uid = lurch.valid_users[i].get('id');
                 }
               }
-
               //create new AA issue
               var wrk = nforce.createSObject('agf__ADM_Work__c');
               wrk.set('agf__Assignee__c', defaultAssignee);//default user assignment
-              wrk.set('agf__Details__c', event_body.issue.body);
+              //clean up the body - swap lurch command w/ link to GH issue
+              var lcommand = jbody.substring(jbody.indexOf('**lurch:'), jbody.length - 1);
+              jbody = jbody.replace(lcommand, gh_url).trim();
+              jbody = jbody.replace('"', '');
+              wrk.set('agf__Details__c', jbody);
               wrk.set('agf__Perforce_Status__c', 'Tracking');
               wrk.set('agf__Product_Owner__c', defaultProductOwner);//default product owner
               wrk.set('agf__Product_Tag__c', defaultProductTag);//default product tag
@@ -375,7 +381,7 @@
                       var work_item_id = nwrk.get('Id');
                       console.log('Created ' + work_item_name + ' at ' + work_item_id);
                       //add to mongo if record was successfully created
-                      lurch.db.createTrackingRecord(tracking_id, work_item_id, function(result){
+                      lurch.db.createTrackingRecord(issue_number, work_item_id, event_body.repository.name, function(result){
                         if (results){
                           //post the successful record back to github
                           console.log('Post back to Github');
@@ -383,7 +389,8 @@
                             user: event_body.sender.login,
                             repo: event_body.repository.name,
                             number: issue_number,
-                            body: 'Tracking ' + '[' + work_item_name + '](' + sfdcURLBase + '/' + work_item_id + ')'
+                            body: "Tracking " + "<a href='" + sfdcURLBase + "/" + work_item_id + "' target='blank'>" + work_item_name + "</a>"
+                            //body: "Tracking " + "[' + work_item_name + '](' + sfdcURLBase + '/' + work_item_id + ')'
                           };
                           github.issues.createComment(ghcomment, function(err, res){
                             if (!err){
