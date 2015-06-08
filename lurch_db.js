@@ -31,12 +31,13 @@ module.exports = {
       }
     });
   },
-  createTrackingRecord: function (issue_body, callback) {
-    var new_tracker = lurch_el.createTracker(issue_body);
+  createTrackingRecord: function (github_id, sfdc_id, callback) {
+    var new_workissue = {github_id: github_id,
+                        sfdc_id: sfdc_id};
 
     //insert the new issue
-    var issue_collection = mongodb.collection('trackers');
-    issue_collection.insert(new_tracker, function (err, result){
+    var issue_collection = mongodb.collection('workissues');
+    issue_collection.insert(new_workissue, function (err, result){
       if (err){
         console.log('Error inserting new issue into Mongo');
         callback(null);
@@ -59,7 +60,5 @@ module.exports = {
         callback(docs);
       }
     });
-
   }
-
 };

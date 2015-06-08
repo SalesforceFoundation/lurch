@@ -15,6 +15,7 @@
   var defaultProductTag = process.env.AADEFAULTPRODUCTTAG || 'a2Pn0000000D2tYEAS';
   var defaultScrumTeam = process.env.AADEFAULTSCRUMTEAM || 'a2cn000000019jLAAQ';
   var defaultRecordType = process.env.AADEFAULTRECORDTYPE || '01280000000BlTnAAK';
+  var sfdcURLBase = process.env.SFDCURLBASE;
 
   // ========== Nforce and Passport Libs ==========
   var nforce = require('nforce');
@@ -85,7 +86,15 @@
   var OAuth2 = require("oauth").OAuth2;
   var ngithub = require("github");
   var github = new ngithub({
-      version: "3.0.0"
+    version: "3.0.0",
+    // optional
+    debug: true,
+    protocol: "https",
+    host: "api.github.com",
+    timeout: 5000,
+    headers: {
+        "user-agent": "lurch-App"
+    }
   });
   var clientId = process.env.GH_CLIENTID;
   var secret = process.env.GH_SECRET;
@@ -186,7 +195,7 @@
         res.writeHead(303, {
              Location: oauth.getAuthorizeUrl({
                redirect_uri: process.env.APPDOMAIN + "/auth/github/_callback",
-               scope: "user,repo,gist"
+               scope: "repo,gist,public_repo,notifications"
              })
          });
          res.end();
@@ -269,16 +278,20 @@
 
       //set the tracking id to search for existing connected AA issues
       var tracking_id = '';
+      var issue_number = '';
       switch (event_name){
         case 'issue_comment':
+          issue_number = event_body.issue.number;
           tracking_id = event_body.issue.id;
           jbody = JSON.stringify(event_body.comment.body);
         break;
         case 'issues':
+          issue_number = event_body.issue.number;
           tracking_id = event_body.issue.id;
           jbody = JSON.stringify(event_body.issue.body);
         break;
         case 'pull_request':
+        issue_number = event_body.pull_request.number;
           tracking_id = event_body.pull_request.id;
           jbody = JSON.stringify(event_body.issue.body);
         break;
@@ -349,41 +362,45 @@
               org.insert({ sobject: wrk }, function(err, resp){
                 if(!err){
                   console.log('New AA issue successfully inserted: ' + resp.id);
-                  var q = 'SELECT Name from agf__ADM_Work__c WHERE id = "' + resp.id + '" LIMIT 1';
+                  var q = "SELECT Id, Name from agf__ADM_Work__c WHERE id = '" + resp.id + "' LIMIT 1";
 
                   org.query({ query: q }, function(err, resp){
+
+                    if (err) console.log(err);
+                    console.log(resp.records);
+
                     if(!err && resp.records) {
                       var nwrk = resp.records[0];
                       var work_item_name = nwrk.get('Name');
-
-
-
-
+                      var work_item_id = nwrk.get('Id');
+                      console.log('Created ' + work_item_name + ' at ' + work_item_id);
+                      //add to mongo if record was successfully created
+                      lurch.db.createTrackingRecord(tracking_id, work_item_id, function(result){
+                        if (results){
+                          //post the successful record back to github
+                          console.log('Post back to Github');
+                          var ghcomment = {
+                            user: event_body.sender.login,
+                            repo: event_body.repository.name,
+                            number: issue_number,
+                            body: 'Tracking ' + '[' + work_item_name + '](' + sfdcURLBase + '/' + work_item_id + ')'
+                          };
+                          github.issues.createComment(ghcomment, function(err, res){
+                            if (!err){
+                              console.log('Posted back to Github');
+                            } else {
+                              console.log(err);
+                            }
+                          });
+                        }
+                      });
                     }
-                  });
-
-
-
-
-
-
-
-
-                  //add to mongo
-                  lurch.db.createTrackingRecord(tracking_id, resp.id, function(result){
-
-
-
                   });
                 }
                 else{
                   console.log('Error inserting work item: ' + err);
                 }
               });
-
-
-
-              //postback to github issue with the work item # & URL
             }
             else if (lurchcommand.indexOf('attach') > -1){
               var issue_num = lurchcommand.replace('attach', '').trim();
