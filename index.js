@@ -7,7 +7,6 @@
   lurch.auth.github_user = '';
   lurch.valid_users = [];
   lurch.db = require('./lurch_db.js');
-  lurch.el = require('./lurch_elements.js');
 
   // ========== Agile Accelerator Default vars ==========
   var defaultAssignee = process.env.AADEFAULTASSIGNEE || '00580000005eABFAA2';
