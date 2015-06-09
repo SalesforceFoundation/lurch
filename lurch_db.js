@@ -1,7 +1,6 @@
 var MongoClient = require('mongodb').MongoClient;
 var assert = require('assert');
 var connection_string = process.env.MONGOLAB_URI || 'mongodb://localhost/HelloMongoose';
-var lurch_el = require('./lurch_elements.js');
 var mongodb;
 
 module.exports = {
@@ -19,7 +18,7 @@ module.exports = {
     });
   },
   findTrackingRecord: function (record_id, repo, callback) {
-    var issue_collection = mongodb.collection('trackers');
+    var issue_collection = mongodb.collection('workissues');
     var docs = issue_collection.find({github_id: record_id, repo: repo}).toArray(function(err, docs){
       if (err){
         callback(null);
@@ -30,10 +29,11 @@ module.exports = {
       }
     });
   },
-  createTrackingRecord: function (github_id, sfdc_id, repo, callback) {
-    var new_workissue = {github_id: github_id,
-                        sfdc_id: sfdc_id,
-                        repo: repo};
+  createTrackingRecord: function (args, callback) {
+    var new_workissue = {github_id: args.github_id,
+                        sfdc_id: args.sfdc_id,
+                        repo: args.repo,
+                        feeditem_id: args.feeditem_id};
 
     //insert the new issue
     var issue_collection = mongodb.collection('workissues');
@@ -46,6 +46,17 @@ module.exports = {
         console.log('Success inserting new issue into Mongo');
         callback(result);
       }
+    });
+  },
+  updateTrackingRecordFeedItem: function (github_id, sfdc_id, repo, feeditem_id, callback){
+    var issue_collection = mongodb.collection('workissues');
+    issue_collection.update(
+      {github_id: github_id, sfdc_id: sfdc_id, repo: repo},
+      {$set: {
+        feeditem_id: feeditem_id
+      }}, function (err, resp){
+      if (!err){console.log(resp); callback(resp);}
+      else{console.log(err);}
     });
   },
   verifyRepo: function (repo_name, callback) {

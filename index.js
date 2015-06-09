@@ -19,6 +19,7 @@
 
   // ========== Nforce and Passport Libs ==========
   var nforce = require('nforce');
+  var chatter = require('nforce-chatter')(nforce);
   var passport = require("passport");
   var LocalStrategy = require("passport-local").Strategy;
   var bodyParser = require('body-parser');
@@ -78,7 +79,8 @@
     apiVersion: 'v32.0',
     environment: 'sandbox',
     mode: 'single',
-    autoRefresh: true
+    autoRefresh: true,
+    plugins: ['chatter']
   });
 
 
@@ -87,13 +89,12 @@
   var ngithub = require("github");
   var github = new ngithub({
     version: "3.0.0",
-    // optional
-    debug: true,
+    //debug: true,
     protocol: "https",
     host: "api.github.com",
     timeout: 5000,
     headers: {
-        "user-agent": "lurch-App"
+        "user-agent": "lurch-app"
     }
   });
   var clientId = process.env.GH_CLIENTID;
@@ -306,7 +307,6 @@
       //see if there are any existing connected AA issues
       lurch.db.findTrackingRecord(issue_number, event_body.repository.name, function (results){
         console.log ('Result size: ' + results.length);
-
         //get the lurch command, if any
         var lurchcommand = '';
         console.log('jbody: ' + jbody);
@@ -321,7 +321,7 @@
           //if we're already actively tracking this issue...
           if (results.length > 0){
             if (event_name === 'issue_comment'){
-              console.log('Adding user comment to AA Issue');
+              console.log('Will soon add user comment to AA Issue');
 
 
 
@@ -334,7 +334,11 @@
               //postback to issue that its been detached
             }
             else{
+              //would handle labels, user assignment, status changes here at some point
+              //in the future
+
               console.log('Non-relevent activity on a tracked issue.');
+
             }
           }
           //not tracked, but a valid user/repo and lurch command identified
@@ -353,8 +357,8 @@
               wrk.set('agf__Assignee__c', defaultAssignee);//default user assignment
               //clean up the body - swap lurch command w/ link to GH issue
               var lcommand = jbody.substring(jbody.indexOf('**lurch:'), jbody.length - 1);
-              jbody = jbody.replace(lcommand, gh_url).trim();
-              jbody = jbody.replace('"', '');
+              jbody = jbody.replace(lcommand, '').trim();
+              jbody = JSON.parse(jbody);
               wrk.set('agf__Details__c', jbody);
               wrk.set('agf__Perforce_Status__c', 'Tracking');
               wrk.set('agf__Product_Owner__c', defaultProductOwner);//default product owner
@@ -369,37 +373,35 @@
                 if(!err){
                   console.log('New AA issue successfully inserted: ' + resp.id);
                   var q = "SELECT Id, Name from agf__ADM_Work__c WHERE id = '" + resp.id + "' LIMIT 1";
-
                   org.query({ query: q }, function(err, resp){
-
                     if (err) console.log(err);
-                    console.log(resp.records);
-
                     if(!err && resp.records) {
                       var nwrk = resp.records[0];
                       var work_item_name = nwrk.get('Name');
                       var work_item_id = nwrk.get('Id');
                       console.log('Created ' + work_item_name + ' at ' + work_item_id);
-                      //add to mongo if record was successfully created
-                      lurch.db.createTrackingRecord(issue_number, work_item_id, event_body.repository.name, function(result){
-                        if (results){
-                          //post the successful record back to github
-                          console.log('Post back to Github');
-                          var ghcomment = {
-                            user: event_body.sender.login,
-                            repo: event_body.repository.name,
-                            number: issue_number,
-                            body: "Tracking " + "<a href='" + sfdcURLBase + "/" + work_item_id + "' target='blank'>" + work_item_name + "</a>"
-                            //body: "Tracking " + "[' + work_item_name + '](' + sfdcURLBase + '/' + work_item_id + ')'
-                          };
-                          github.issues.createComment(ghcomment, function(err, res){
-                            if (!err){
-                              console.log('Posted back to Github');
-                            } else {
-                              console.log(err);
+                      var posttext = event_body.sender.login + ' added tracking for: ' + gh_url;
+                      org.chatter.postFeedItem({id: work_item_id, text: posttext}, function(err, resp){
+                        if (!err){
+                          console.log('Posted link to Chatter');
+                          var args = {github_id: issue_number, sfdc_id: work_item_id, repo: event_body.repository.name, feeditem_id: resp.id};
+                          //add to mongo if record was successfully created
+                          lurch.db.createTrackingRecord(args, function(result){
+                            if (results){
+                              var ghcomment = {
+                                user: event_body.sender.login,
+                                repo: event_body.repository.name,
+                                number: issue_number,
+                                body: "Tracking " + "<a href='" + sfdcURLBase + "/" + work_item_id + "' target='blank'>" + work_item_name + "</a>"
+                              };
+                              github.issues.createComment(ghcomment, function(err, res){
+                                if (!err)console.log('Posted back to Github');
+                                else console.log(err);
+                              });
                             }
                           });
                         }
+                        else console.log(err);
                       });
                     }
                   });
@@ -410,18 +412,61 @@
               });
             }
             else if (lurchcommand.indexOf('attach') > -1){
-              var issue_num = lurchcommand.replace('attach', '').trim();
-              console.log('Attaching issue to existing work item ' + issue_num);
-
               //get the AA issue from SFDC
               //post to the AA issue
               //post the issue link back to github
               //enter a mongo row
-            }
+              var issue_name = lurchcommand.replace('attach', '').trim();
+              issue_name.replace(/(^")|("$)/g, '');
+              console.log('Attaching issue to existing work item ' + issue_name);
+              var q = "SELECT Id, Name from agf__ADM_Work__c WHERE Name = '" + issue_name + "' LIMIT 1";
 
+              org.query({ query: q }, function(err, resp){
+                var nwrk = resp.records[0];
+                var work_item_id = nwrk.get('Id');
+                if (!err){
+                  var posttext = event_body.sender.login + ' added tracking for: ' + gh_url;
+                  org.chatter.postFeedItem({id: work_item_id, text: posttext}, function(err, resp){
+                    if (!err){
+                      console.log('Posted link to Chatter');
+                      var args = {github_id: issue_number, sfdc_id: work_item_id, repo: event_body.repository.name, feeditem_id: resp.id};
+                      lurch.db.createTrackingRecord(args, function(result){
+                        if (results){
+                          //post the successful record back to github
+                          var ghcomment = {
+                            user: event_body.sender.login,
+                            repo: event_body.repository.name,
+                            number: issue_number,
+                            body: "Tracking " + "<a href='" + sfdcURLBase + "/" + work_item_id + "' target='blank'>" + issue_name + "</a>"
+                          };
+                          github.issues.createComment(ghcomment, function(err, res){
+                            if (!err) console.log('Posted back to Github');
+                            else console.log(err);
+                          });
+                        }
+                      });
+                    }
+                    else console.log(err);
+                  });
+                }
+                //query error
+                else {
+                  var ghcomment = {
+                    user: event_body.sender.login,
+                    repo: event_body.repository.name,
+                    number: issue_number,
+                    body: "Could not find an existing issue.  Did you intend to add a new work item instead?"
+                  };
+                  github.issues.createComment(ghcomment, function(err, res){
+                    if (!err) console.log('Posted back to Github');
+                    else console.log(err);
+                  });
+                }
+              });
+            }
           }
           else{
-            console.log('Invalid user/repo and/or no lurch command found.');
+            console.log('Could not find user/repo and/or no lurch command found.');
           }
         });//eventUserReportCheck
       });//find trackingRecord
@@ -429,43 +474,6 @@
   };
 
   lurch.processSFDCEvent = function () {
-
-
-  };
-
-  lurch.sendEventToSFDC = function (event_body, event_name, event_repo) {
-    //event is either already being tracked, or has a lurch command associated
-    //now decide what to do with it in SFDC
-    var opts = "{uri: 'lurch', method: 'post', urlParams: 'repo=' + event_repo + '&type=' + event_name, body: event_body}";
-
-
-    //for now, only handle IssuesEvent or a IssueCommentEvent
-    if (event_name === 'issues'){
-
-
-    }
-
-
-    org.apexRest(opts, function (error, result) {
-
-      if (!error){
-        console.log('Successfully sent.');
-
-        //SET RETURNED VALUE IN TRACKER
-
-
-
-      }
-      else{
-        console.log('Apex REST failed with an error of ' + error);
-      }
-
-
-    });
-
-
-
-
 
 
   };
