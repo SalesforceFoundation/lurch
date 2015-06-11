@@ -280,38 +280,44 @@
       var tracking_id = '';
       var issue_number = '';
       var gh_url = '';
+      var issue_body = '';
+      var issue_action = event_body.action;
+      var comment_body = '';
       switch (event_name){
         case 'issue_comment':
           issue_number = event_body.issue.number;
           gh_url = event_body.issue.html_url;
           tracking_id = event_body.issue.id;
-          jbody = JSON.stringify(event_body.comment.body);
+          comment_body = event_body.comment.body;
+          issue_body = event_body.issue.body;
         break;
         case 'issues':
           issue_number = event_body.issue.number;
           gh_url = event_body.issue.html_url;
           tracking_id = event_body.issue.id;
-          jbody = JSON.stringify(event_body.issue.body);
+          issue_body = event_body.issue.body;
         break;
         case 'pull_request':
           issue_number = event_body.pull_request.number;
           gh_url = event_body.pull_request.html_url;
           tracking_id = event_body.pull_request.id;
-          jbody = JSON.stringify(event_body.issue.body);
+          issue_body = event_body.issue.body;
         break;
       }
 
       console.log('Processing ' + event_name + ' ' + tracking_id + ' for ' + event_body.repository.name);
 
       //see if there are any existing connected AA issues
-      lurch.db.findTrackingRecord(issue_number, event_body.repository.name, function (results){
-        console.log ('Result size: ' + results.length);
+      var args = {github_id: issue_number, repo: event_body.repository.name};
+      lurch.db.findTrackingRecord(args, function (results){
+        console.log ('Workissue records found: ' + results.length);
         //get the lurch command, if any
         var lurchcommand = '';
-        console.log('jbody: ' + jbody);
+
         //if there's a lurch command, get it
-        if (jbody.indexOf('**lurch:') > -1){
-          var command = jbody.substring(jbody.indexOf('**lurch:'), jbody.length - 1);
+        var command_string = event_name === 'issue_comment' ? comment_body : issue_body;
+        if (command_string.indexOf('**lurch:') > -1){
+          var command = command_string.substring(command_string.indexOf('**lurch:'), command_string.length);
           lurchcommand = command.replace('**lurch:', '').trim();
           console.log('LURCH COMMAND: ' + lurchcommand);
         }
@@ -319,29 +325,77 @@
         lurch.githubEventUserRepoCheck(event_body.sender.login, event_body.repository.name, function (isValidUserRepo) {
           //if we're already actively tracking this issue...
           if (results.length > 0){
-            if (event_name === 'issue_comment'){
-              console.log('Will soon add user comment to AA Issue');
+            var feeditem_id = results[0].feeditem_id;
+            var sfdc_id = results[0].sfdc_id;
 
-
-
-              //add the comment to the AA issue silently
-            }
-            else if (lurchcommand === 'detach' && isValidUserRepo){
+            if (lurchcommand === 'detach' && isValidUserRepo){
               console.log('Detaching Issue from tracker');
               //remove record from mongo
               //detach from AA issue and update AA accordingly
               //postback to issue that its been detached
+              var query = {repo: event_body.repository.name, github_id: issue_number};
+
+              lurch.db.removeTrackingRecord(query, function(result){
+                if (result){
+                  //confirm there are no more tracking records for this work item
+                  //if there are none remaining, set source controls status on work item to unattached
+                  var args = {sfdc_id: sfdc_id, repo: event_body.repository.name};
+                  lurch.db.findTrackingRecord(args, function(results){
+                    //if we found no other records for this work item, set source control status on work item
+                    if (results.length < 1){
+                      var wrk = nforce.createSObject('agf__ADM_Work__c');
+                      wrk.set("Id", sfdc_id);
+                      wrk.set('agf__Perforce_Status__c', 'None');
+                      org.update({ sobject: wrk }, function(err, resp){});
+                    }
+                  });
+                  var posttext = 'Detached from issue by ' + event_body.comment.user.login;
+                  org.chatter.postComment({id: feeditem_id, text: posttext}, function(err, resp){
+                    if (!err){
+                      console.log('Posted removal to Chatter');
+                      var ghcomment = {
+                        user: event_body.sender.login,
+                        repo: event_body.repository.name,
+                        number: issue_number,
+                        body: "Successfully detached from work item"
+                      };
+                      github.issues.createComment(ghcomment, function(err, res){
+                        if (!err)console.log('Posted back to Github');
+                        else console.log(err);
+                      });
+                    }
+                    else console.log(err);
+                  });
+                }
+              });
+            }
+            //add the comment to the AA issue silently
+            //check and make sure this isn't our own postback before proceeding
+            else if (event_name === 'issue_comment' && comment_body.indexOf('Tracking <a href') < 0){
+              console.log('Result feed item id: ');
+              console.log(feeditem_id);
+              var posttext = '';
+              posttext = '@' + event_body.comment.user.login + ': ' + comment_body;
+              org.chatter.postComment({id: feeditem_id, text: posttext}, function(err, resp){
+                if (!err) console.log('Posted github comment to Chatter');
+                else console.log(err);
+              });
+            }
+            //handle open, closing and assignment of issues
+            else if (event_name === 'issues' && (issue_action === 'assigned' || issue_action === 'unassigned' || issue_action ===  'closed' || issue_action === 'reopened')){
+
+
             }
             else{
               //would handle labels, user assignment, status changes here at some point
               //in the future
 
               console.log('Non-relevent activity on a tracked issue.');
-
             }
           }
           //not tracked, but a valid user/repo and lurch command identified
           else if (isValidUserRepo && lurchcommand !== ''){
+
             if (lurchcommand === 'add'){
               console.log('Adding a new AA work item for ' + tracking_id);
               var uid = '';
@@ -355,11 +409,13 @@
               var wrk = nforce.createSObject('agf__ADM_Work__c');
               wrk.set('agf__Assignee__c', defaultAssignee);//default user assignment
               //clean up the body - swap lurch command w/ link to GH issue
-              var lcommand = jbody.substring(jbody.indexOf('**lurch:'), jbody.length - 1);
-              jbody = jbody.replace(lcommand, '').trim();
-              jbody = JSON.parse(jbody);
-              wrk.set('agf__Details__c', jbody);
-              wrk.set('agf__Perforce_Status__c', 'Tracking');
+              if (issue_body.indexOf('**lurch') > -1){
+                console.log('Found lurch comment' );
+                var lcommand = issue_body.substring(issue_body.indexOf('**lurch:'), issue_body.length);
+                issue_body = issue_body.replace(lcommand, "").trim();
+              }
+              wrk.set('agf__Details__c', issue_body);
+              wrk.set('agf__Perforce_Status__c', 'Attached');
               wrk.set('agf__Product_Owner__c', defaultProductOwner);//default product owner
               wrk.set('agf__Product_Tag__c', defaultProductTag);//default product tag
               wrk.set('agf__Scrum_Team__c', defaultScrumTeam);//default scrum team
@@ -379,8 +435,9 @@
                       var work_item_name = nwrk.get('Name');
                       var work_item_id = nwrk.get('Id');
                       console.log('Created ' + work_item_name + ' at ' + work_item_id);
-                      var posttext = event_body.sender.login + ' added tracking for: ' + gh_url;
-                      org.chatter.postFeedItem({id: work_item_id, text: posttext}, function(err, resp){
+                      var posttext = event_body.sender.login + " added issue: '" + event_body.issue.title + "'";
+                      var capabilities = {'link': { "urlName": event_body.repository.name + " issue " + issue_number,"url":gh_url}};
+                      org.chatter.postFeedItem({id: work_item_id, text: posttext, capabilities: capabilities}, function(err, resp){
                         if (!err){
                           console.log('Posted link to Chatter');
                           var args = {github_id: issue_number, sfdc_id: work_item_id, repo: event_body.repository.name, feeditem_id: resp.id};
@@ -424,8 +481,10 @@
                 var nwrk = resp.records[0];
                 var work_item_id = nwrk.get('Id');
                 if (!err){
-                  var posttext = event_body.sender.login + ' added tracking for: ' + gh_url;
-                  org.chatter.postFeedItem({id: work_item_id, text: posttext}, function(err, resp){
+
+                  var posttext = event_body.sender.login + " added issue: '" + event_body.issue.title + "'";
+                  var capabilities = {'link': { "urlName": event_body.repository.name + " issue " + issue_number,"url":gh_url}};
+                  org.chatter.postFeedItem({id: work_item_id, text: posttext, capabilities: capabilities}, function(err, resp){
                     if (!err){
                       console.log('Posted link to Chatter');
                       var args = {github_id: issue_number, sfdc_id: work_item_id, repo: event_body.repository.name, feeditem_id: resp.id};

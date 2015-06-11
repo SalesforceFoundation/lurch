@@ -17,15 +17,28 @@ module.exports = {
       }
     });
   },
-  findTrackingRecord: function (record_id, repo, callback) {
+  findTrackingRecord: function (args, callback) {
     var issue_collection = mongodb.collection('workissues');
-    var docs = issue_collection.find({github_id: record_id, repo: repo}).toArray(function(err, docs){
+    var docs = issue_collection.find(args).toArray(function(err, docs){
       if (err){
         callback(null);
       }
       else{
-        console.log('Returning tracker results ' + docs.length);
         callback(docs);
+      }
+    });
+  },
+  removeTrackingRecord: function (args, callback){
+    var issue_collection = mongodb.collection('workissues');
+    // Insert some documents
+    issue_collection.remove(args, function(err, result) {
+      if (err) {
+        console.log(err);
+        callback(null);
+      }
+      else{
+        console.log("Removed " + args.github_id + " from " + args.repo);
+        callback(result);
       }
     });
   },
