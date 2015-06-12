@@ -13,7 +13,7 @@
   var defaultProductOwner = process.env.AADEFAULTPRODUCTOWNER || '00580000005eABFAA2';
   var defaultProductTag = process.env.AADEFAULTPRODUCTTAG || 'a2Pn0000000D2tYEAS';
   var defaultScrumTeam = process.env.AADEFAULTSCRUMTEAM || 'a2cn000000019jLAAQ';
-  var defaultRecordType = process.env.AADEFAULTRECORDTYPE || '01280000000BlTnAAK';
+  var defaultRecordType = process.env.AADEFAULTRECORDTYPE || '01280000000BlTj';
   var sfdcURLBase = process.env.SFDCURLBASE;
 
   // ========== Nforce and Passport Libs ==========
@@ -423,6 +423,12 @@
               wrk.set('agf__Subject__c', event_body.issue.title);
               wrk.set('OwnerId', uid);//lurch add owner
               wrk.set('RecordTypeId', defaultRecordType);//default record type
+
+              // Bug Rectype Fields
+              /*Found In Build
+              Priority
+              Impact
+              Type*/
 
               org.insert({ sobject: wrk }, function(err, resp){
                 if(!err){
