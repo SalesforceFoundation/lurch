@@ -24,7 +24,6 @@
   var bodyParser = require('body-parser');
   var crypto = require('crypto');
 
-
   // ========== Express Config ==========
   var port = Number(process.env.PORT || 5000);
   var logfmt = require("logfmt");
@@ -82,7 +81,6 @@
     plugins: ['chatter']
   });
 
-
   // ========== node-github Setup ==========
   var OAuth2 = require("oauth").OAuth2;
   var ngithub = require("github");
@@ -111,12 +109,12 @@
       if (!user) { return res.redirect('/login'); }
       req.logIn(user, function(err) {
         if (err) { return next(err); }
-        return res.redirect('/index.html');
+        return res.redirect('index.html');
       });
     })(req, res, next);
   });
   app.get('/login', function(req, res){
-    res.sendfile('login.html');
+    res.sendfile('app/login.html');
   });
   app.use('/', function(req, res, next){
     lurch.ensureAuthenticated(req, res, next);
