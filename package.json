@@ -4,7 +4,7 @@
   "description": "You rang....???",
   "main": "app/index.js",
   "engines": {
-    "node": "0.10.x",
+    "node": "6.11.1",
     "npm": "2.2.x"
   },
   "scripts": {
