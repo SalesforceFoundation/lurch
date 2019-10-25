@@ -28,7 +28,7 @@
     "oauth": "0.9.12",
     "socket.io": "1.3.5",
     "mongoose": "4.0.1",
-    "mongodb": "2.0.28",
+    "mongodb": "2.2.36",
     "assert": "1.3.0",
     "nforce-chatter": "0.0.1"
   },
